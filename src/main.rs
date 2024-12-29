@@ -44,12 +44,16 @@ fn f(n0: u128, lut3: &Lut3) -> u32 {
 ///
 fn get_lut2(lut3: &Lut3) -> Lut2 {
     let bit_array = Arc::new(
-        (0..1 << K - 6)
+        (0..1u64 << K - 6)
             .map(|_| AtomicU64::new(u64::MAX))
             .collect::<Vec<_>>(),
     );
 
     for k in 1..=K {
+        if [3, 6, 9, 11, 14, 17, 19, 22, 25, 28, 30, 33, 36].contains(&k) {
+            continue;
+        }
+
         let n0 = 1 << k;
         let bit_array = Arc::clone(&bit_array);
 
@@ -103,18 +107,6 @@ fn get_lut2(lut3: &Lut3) -> Lut2 {
         }
     }
     lut2
-
-    // bit_array
-    //     .iter()
-    //     .enumerate()
-    //     .map(|(i, e)| {
-    //         let e = e.load(Ordering::Relaxed);
-    //         (0..64)
-    //             .filter(move |&j| e & (1 << j) != 0)
-    //             .map(move |j| (i as u64 * 64) + j)
-    //     })
-    //     .flatten()
-    //     .collect()
 }
 
 // noinspection GrazieInspection
@@ -141,8 +133,7 @@ fn get_lut3() -> Lut3 {
 ///
 fn process(n: u128, lut2: &Lut2, lut3: &Lut3) {
     lut2.into_par_iter().for_each(|&r| {
-        let n0 = (n << K) + r as u128;
-        f(n0, lut3);
+        f((n << K) + r as u128, lut3);
     });
 }
 
