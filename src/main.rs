@@ -1,6 +1,7 @@
 use num_format::{Locale, ToFormattedString};
 use rayon::prelude::*;
 use std::cmp::min;
+use std::io::{self, Write};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -86,8 +87,10 @@ fn get_lut2(lut3: &Lut3) -> Lut2 {
             }
         });
 
-        println!("k = {}", k);
+        print!("\rk = {}", k);
+        io::stdout().flush().unwrap();
     }
+    println!();
 
     let mut lut2 = Vec::new();
     for (i, e) in bit_array.iter().enumerate() {
@@ -98,7 +101,6 @@ fn get_lut2(lut3: &Lut3) -> Lut2 {
             }
         }
     }
-
     lut2
 }
 
@@ -116,22 +118,19 @@ fn get_lut3() -> Lut3 {
     lut3
 }
 
-/// Test the convergence of starting numbers from 2<sup>38</sup> n to 2<sup>38</sup> (n + 1).
+/// Test the convergence of starting numbers from 2<sup>34</sup> n to 2<sup>34</sup> (n + 1).
 ///
 /// ## Arguments
 ///
 /// - `n` -
 /// - `lut2` -
 /// - `lut3` -
+///
 fn process(n: u64, lut2: &Lut2, lut3: &Lut3) {
-    (n * (1 << 4)..(n + 1) * (1 << 4))
-        .into_par_iter()
-        .for_each(|n| {
-            lut2.into_par_iter().for_each(|r| {
-                let n0 = n * (1 << 34) + r;
-                f(n0, lut3);
-            })
-        });
+    lut2.into_par_iter().for_each(|r| {
+        let n0 = n * (1 << 34) + r;
+        f(n0, lut3);
+    });
 }
 
 fn main() {
@@ -150,7 +149,7 @@ fn main() {
     );
     println!(
         "lut2: {} elements",
-        lut2.len().to_formatted_string(&Locale::en)
+        lut2.len().to_formatted_string(&Locale::en),
     );
     println!("lut2: {:.3} GiB", lut2.len() as f32 / 2.0f32.powi(27));
     println!("lut3: {} bytes", lut3.len() * 8);
@@ -158,13 +157,16 @@ fn main() {
 
     let mut n = 0;
     loop {
-        process(n, &lut2, &lut3);
+        ((n * (1 << 4))..((n + 1) * (1 << 4)))
+            .into_par_iter()
+            .for_each(|n| process(n, &lut2, &lut3));
         n += 1;
 
-        println!(
-            "Processed {:.3e} starting numbers in {} seconds.",
+        print!(
+            "\rProcessed {:.3e} starting numbers in {:.3} seconds.",
             n * 2u64.pow(38),
             start.elapsed().as_millis() as f32 / 1000.0,
         );
+        io::stdout().flush().unwrap();
     }
 }
