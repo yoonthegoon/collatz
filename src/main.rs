@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 type Lut2 = Vec<u64>;
-type Lut3 = [u64; 41];
+type Lut3 = [u128; 81];
 
 /// Fast Collatz function convergence test algorithm
 ///
@@ -20,7 +20,7 @@ type Lut3 = [u64; 41];
 ///
 /// - `i` - Iterations taken until `n < n0`. `i > n0.ilog2()` would be notable and worth investigating.
 ///
-fn f(n0: u64, lut3: &Lut3) -> u64 {
+fn f(n0: u128, lut3: &Lut3) -> u64 {
     let mut i = 0;
     let mut n = n0;
     while n >= n0 {
@@ -66,8 +66,8 @@ fn get_lut2(lut3: &Lut3) -> Lut2 {
             loop {
                 r += 1;
                 let a = min(n.trailing_zeros(), r.trailing_zeros());
-                n = (n >> a) * lut3[a as usize];
-                r = (r >> a) * lut3[a as usize];
+                n = (n >> a) * lut3[a as usize] as u64;
+                r = (r >> a) * lut3[a as usize] as u64;
                 r -= 1;
                 let b = min(n.trailing_zeros(), r.trailing_zeros());
                 n >>= b;
@@ -102,6 +102,18 @@ fn get_lut2(lut3: &Lut3) -> Lut2 {
         }
     }
     lut2
+
+    // bit_array
+    //     .iter()
+    //     .enumerate()
+    //     .map(|(i, e)| {
+    //         let e = e.load(Ordering::Relaxed);
+    //         (0..64)
+    //             .filter(move |&j| e & (1 << j) != 0)
+    //             .map(move |j| (i as u64 * 64) + j)
+    //     })
+    //     .flatten()
+    //     .collect()
 }
 
 // noinspection GrazieInspection
@@ -111,9 +123,9 @@ fn get_lut2(lut3: &Lut3) -> Lut2 {
 /// - `lut3` - `lut3[a as usize]` is equivalent to `3u64.pow(a)`.
 ///
 fn get_lut3() -> Lut3 {
-    let mut lut3 = [u64::default(); 41];
-    for exp in 0..41 {
-        lut3[exp as usize] = 3u64.pow(exp);
+    let mut lut3 = [u128::default(); 81];
+    for exp in 0..81 {
+        lut3[exp as usize] = 3u128.pow(exp);
     }
     lut3
 }
@@ -126,9 +138,9 @@ fn get_lut3() -> Lut3 {
 /// - `lut2` -
 /// - `lut3` -
 ///
-fn process(n: u64, lut2: &Lut2, lut3: &Lut3) {
-    lut2.into_par_iter().for_each(|r| {
-        let n0 = n * (1 << 34) + r;
+fn process(n: u128, lut2: &Lut2, lut3: &Lut3) {
+    lut2.into_par_iter().for_each(|&r| {
+        let n0 = n * (1 << 34) + r as u128;
         f(n0, lut3);
     });
 }
@@ -152,7 +164,7 @@ fn main() {
         lut2.len().to_formatted_string(&Locale::en),
     );
     println!("lut2: {:.3} GiB", lut2.len() as f32 / 2.0f32.powi(27));
-    println!("lut3: {} bytes", lut3.len() * 8);
+    println!("lut3: {:.3} kiB", lut3.len() as f32 / 2.0f32.powi(6));
     let start = Instant::now();
 
     let mut n = 0;
@@ -164,7 +176,7 @@ fn main() {
 
         print!(
             "\rProcessed {:.3e} starting numbers in {:.3} seconds.",
-            n * 2u64.pow(38),
+            n * 2u128.pow(38),
             start.elapsed().as_millis() as f32 / 1000.0,
         );
         io::stdout().flush().unwrap();
