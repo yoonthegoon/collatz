@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
+const K: usize = 35;
 type Lut2 = Vec<u64>;
 type Lut3 = [u128; 81];
 
@@ -18,9 +19,9 @@ type Lut3 = [u128; 81];
 ///
 /// ## Returns
 ///
-/// - `i` - Iterations taken until `n < n0`. `i > n0.ilog2()` would be notable and worth investigating.
+/// - `i` - Steps of "shortcut" taken until `n < n0`. `i > n0.ilog2()` would be notable and worth investigating.
 ///
-fn f(n0: u128, lut3: &Lut3) -> u64 {
+fn f(n0: u128, lut3: &Lut3) -> u32 {
     let mut i = 0;
     let mut n = n0;
     while n >= n0 {
@@ -30,25 +31,25 @@ fn f(n0: u128, lut3: &Lut3) -> u64 {
         n -= 1;
         let b = n.trailing_zeros();
         n >>= b;
-        i += 1;
+        i += a + b;
     }
     i
 }
 
-/// Lookup table for starting numbers in the form 2<sup>k</sup> n + r up to k = 34.
+/// Lookup table for starting numbers in the form 2<sup>k</sup> n + r up to `K`.
 ///
 /// ## Returns
 ///
-/// - `lut2` - Vector of `r` that did not converge in `34` or fewer iterations.
+/// - `lut2` - Vector of `r` that did not converge in `K` or fewer iterations.
 ///
 fn get_lut2(lut3: &Lut3) -> Lut2 {
     let bit_array = Arc::new(
-        (0..1 << 28)
+        (0..1 << K - 6)
             .map(|_| AtomicU64::new(u64::MAX))
             .collect::<Vec<_>>(),
     );
 
-    for k in 1..=34 {
+    for k in 1..=K {
         let n0 = 1 << k;
         let bit_array = Arc::clone(&bit_array);
 
@@ -74,7 +75,7 @@ fn get_lut2(lut3: &Lut3) -> Lut2 {
                 r >>= b;
 
                 if n < n0 {
-                    for i in (r0 / 64..1 << 28).step_by(n0 as usize) {
+                    for i in (r0 / 64..1 << K - 6).step_by(n0 as usize) {
                         let j = r0 % 64;
                         bit_array[i as usize].fetch_and(!(1 << j), Ordering::SeqCst);
                     }
@@ -130,17 +131,17 @@ fn get_lut3() -> Lut3 {
     lut3
 }
 
-/// Test the convergence of starting numbers from 2<sup>34</sup> n to 2<sup>34</sup> (n + 1).
+/// Test the convergence of starting numbers from 2<sup>K</sup> n to 2<sup>K</sup> (n + 1).
 ///
 /// ## Arguments
 ///
-/// - `n` -
-/// - `lut2` -
-/// - `lut3` -
+/// - `n` - nth batch of 2<sup>K</sup>.
+/// - `lut2` - Lookup table containing numbers passed through 2<sup>K</sup> sieve.
+/// - `lut3` - Lookup table containing powers of 3.
 ///
 fn process(n: u128, lut2: &Lut2, lut3: &Lut3) {
     lut2.into_par_iter().for_each(|&r| {
-        let n0 = n * (1 << 34) + r as u128;
+        let n0 = (n << K) + r as u128;
         f(n0, lut3);
     });
 }
@@ -157,7 +158,7 @@ fn main() {
     );
     println!(
         "Sieved {:.3}% of starting numbers.",
-        (1.0 - lut2.len() as f32 / 2.0f32.powi(34)) * 100.0,
+        (1.0 - lut2.len() as f32 / 2.0f32.powi(K as i32)) * 100.0,
     );
     println!(
         "lut2: {} elements",
@@ -169,14 +170,12 @@ fn main() {
 
     let mut n = 0;
     loop {
-        ((n * (1 << 4))..((n + 1) * (1 << 4)))
-            .into_par_iter()
-            .for_each(|n| process(n, &lut2, &lut3));
+        process(n, &lut2, &lut3);
         n += 1;
 
         print!(
             "\rProcessed {:.3e} starting numbers in {:.3} seconds.",
-            n * 2u128.pow(38),
+            n * 2u128.pow(K as u32),
             start.elapsed().as_millis() as f32 / 1000.0,
         );
         io::stdout().flush().unwrap();
