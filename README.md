@@ -71,6 +71,14 @@ lut3: 2.531 kiB
 Processed 1.126e12 starting numbers in 45.123 seconds.
 ```
 
+## Screenshots
+
+### Ohara.ai Authentication Login
+![Ohara.ai Auth Login](images/ohara-auth-login.png)
+
+### Download Process
+![Download Process](images/download.jpg)
+
 ## Technical Details
 
 ### Constants and Types
