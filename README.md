@@ -97,6 +97,12 @@ While the Collatz conjecture remains unproven, computational verification helps 
 
 This implementation represents one of the fastest known approaches to Collatz testing, capable of exploring number ranges that were previously computationally infeasible.
 
+## Images
+
+![Download](images/download.jpg)
+
+![Ohara Auth Login](images/ohara_auth_login.png)
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
