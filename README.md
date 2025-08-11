@@ -11,6 +11,12 @@ The Collatz conjecture (also known as the 3n+1 problem) is one of mathematics' m
 
 The conjecture states that all positive integers will eventually reach 1, but this has never been proven.
 
+## Visual Overview
+
+![Collatz Implementation](download.jpg)
+
+![Performance Dashboard](ohara-auth-login.png)
+
 ## What This Project Does
 
 This program implements an **extremely fast** algorithm to test Collatz convergence for massive ranges of numbers. Instead of naively applying the 3n+1 rule step by step, it uses several sophisticated optimizations:
