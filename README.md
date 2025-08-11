@@ -42,6 +42,16 @@ This implementation can process **billions of numbers per second** depending on 
 - Displays the percentage of numbers filtered out by the sieve
 - Runs indefinitely, processing larger and larger ranges
 
+## Screenshots
+
+Here are examples of the program in action:
+
+![Collatz Program Output](collatz_screenshot1.jpg)
+*Example terminal output showing the high-performance Collatz computation in progress*
+
+![Collatz Analysis Interface](collatz_screenshot2.png)
+*Additional program interface or analysis view*
+
 ## Usage
 
 ### Prerequisites
