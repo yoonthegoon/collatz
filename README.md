@@ -52,12 +52,14 @@ This implementation can process **billions of numbers per second** depending on 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yoonthegoon/collatz.git
-cd collatz
+git clone https://github.com/yoonthegoon/wowhmm.git
+cd wowhmm
 
-# Run with optimizations
+# Run directly with no dependencies needed!
 cargo run --release
 ```
+
+**No external dependencies required!** This implementation uses only Rust's standard library, so you can run it immediately without installing any additional packages.
 
 ### Sample Output
 
@@ -84,8 +86,7 @@ Processed 1.126e12 starting numbers in 45.123 seconds.
 - Uses atomic operations for thread-safe bit manipulation
 
 ### Dependencies
-- `rayon`: Parallel processing library
-- `num-format`: Number formatting for readable output
+- None! This implementation uses only Rust standard library
 
 ## Why This Matters
 
