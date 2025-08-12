@@ -1,5 +1,4 @@
-use num_format::{Locale, ToFormattedString};
-use rayon::prelude::*;
+use std::thread;
 use std::cmp::min;
 use std::io::{self, Write};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -7,6 +6,28 @@ use std::sync::Arc;
 use std::time::Instant;
 
 const K: usize = 35;
+
+/// Format a number with thousand separators (commas)
+fn format_number(n: usize) -> String {
+    let s = n.to_string();
+    let mut result = String::new();
+    let chars: Vec<char> = s.chars().collect();
+    
+    for (i, c) in chars.iter().enumerate() {
+        if i > 0 && (chars.len() - i) % 3 == 0 {
+            result.push(',');
+        }
+        result.push(*c);
+    }
+    result
+}
+
+/// Get the number of logical CPU cores
+fn num_cpus() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1)
+}
 type Lut2 = Vec<u64>;
 type Lut3 = [u128; 81];
 
@@ -57,40 +78,56 @@ fn get_lut2(lut3: &Lut3) -> Lut2 {
         let n0 = 1 << k;
         let bit_array = Arc::clone(&bit_array);
 
-        (0u64..n0).into_par_iter().for_each(|r0| {
-            let i = r0 / 64;
-            let j = r0 % 64;
+        let handles: Vec<_> = (0u64..n0)
+            .collect::<Vec<_>>()
+            .chunks((n0 as usize / num_cpus()).max(1))
+            .map(|chunk| {
+                let bit_array = Arc::clone(&bit_array);
+                let lut3 = *lut3;
+                let chunk = chunk.to_vec();
+                let n0 = n0;
+                thread::spawn(move || {
+                        for r0 in chunk {
+                            let i = r0 / 64;
+                            let j = r0 % 64;
 
-            if bit_array[i as usize].load(Ordering::Relaxed) & (1 << j) == 0 {
-                return;
-            }
+                            if bit_array[i as usize].load(Ordering::Relaxed) & (1 << j) == 0 {
+                                continue;
+                            }
 
-            let mut n = n0;
-            let mut r = r0;
+                            let mut n = n0;
+                            let mut r = r0;
 
-            loop {
-                r += 1;
-                let a = min(n.trailing_zeros(), r.trailing_zeros());
-                n = (n >> a) * lut3[a as usize] as u64;
-                r = (r >> a) * lut3[a as usize] as u64;
-                r -= 1;
-                let b = min(n.trailing_zeros(), r.trailing_zeros());
-                n >>= b;
-                r >>= b;
+                            loop {
+                                r += 1;
+                                let a = min(n.trailing_zeros(), r.trailing_zeros());
+                                n = (n >> a) * lut3[a as usize] as u64;
+                                r = (r >> a) * lut3[a as usize] as u64;
+                                r -= 1;
+                                let b = min(n.trailing_zeros(), r.trailing_zeros());
+                                n >>= b;
+                                r >>= b;
 
-                if n < n0 {
-                    for i in (r0 / 64..1 << K - 6).step_by(n0 as usize) {
-                        let j = r0 % 64;
-                        bit_array[i as usize].fetch_and(!(1 << j), Ordering::SeqCst);
-                    }
-                    break;
-                }
+                                if n < n0 {
+                                    for i in (r0 / 64..1 << K - 6).step_by(n0 as usize) {
+                                        let j = r0 % 64;
+                                        bit_array[i as usize].fetch_and(!(1 << j), Ordering::SeqCst);
+                                    }
+                                    break;
+                                }
 
-                if n % 2 == 1 {
-                    break;
-                }
-            }
-        });
+                                if n % 2 == 1 {
+                                    break;
+                                }
+                            }
+                        }
+                })
+        })
+        .collect();
+        
+        for handle in handles {
+            handle.join().unwrap();
+        }
 
         print!("\rk = {}", k);
         io::stdout().flush().unwrap();
@@ -132,9 +169,23 @@ fn get_lut3() -> Lut3 {
 /// - `lut3` - Lookup table containing powers of 3.
 ///
 fn process(n: u128, lut2: &Lut2, lut3: &Lut3) {
-    lut2.into_par_iter().for_each(|&r| {
-        f((n << K) + r as u128, lut3);
-    });
+    let handles: Vec<_> = lut2
+        .chunks((lut2.len() / num_cpus()).max(1))
+        .map(|chunk| {
+            let chunk = chunk.to_vec();
+            let lut3 = *lut3;
+            let n = n;
+            thread::spawn(move || {
+                for &r in chunk.iter() {
+                    f((n << K) + r as u128, &lut3);
+                }
+            })
+        })
+        .collect();
+    
+    for handle in handles {
+        handle.join().unwrap();
+    }
 }
 
 fn main() {
@@ -153,7 +204,7 @@ fn main() {
     );
     println!(
         "lut2: {} elements",
-        lut2.len().to_formatted_string(&Locale::en),
+        format_number(lut2.len()),
     );
     println!("lut2: {:.3} GiB", lut2.len() as f32 / 2.0f32.powi(27));
     println!("lut3: {:.3} kiB", lut3.len() as f32 / 2.0f32.powi(6));
